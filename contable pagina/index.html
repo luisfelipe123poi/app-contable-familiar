@@ -62,10 +62,6 @@
         th { background: var(--bg-primary); color: var(--text-muted); padding: 10px; position: sticky; top: 0; z-index: 10; }
         td { padding: 10px; border-bottom: 1px solid var(--border-color); }
 
-        .badge { padding: 3px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; }
-        .badge-income { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); }
-        .badge-expense { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); }
-        
         .action-del { cursor: pointer; color: var(--accent-red); font-weight: bold; }
     </style>
 </head>
@@ -77,8 +73,7 @@
             <p style="font-size: 0.85rem; color: var(--text-muted);">Protección de Deudas Recurrentes & Auditoría con OpenAI</p>
         </div>
         <div>
-            <button class="btn btn-outline" onclick="loadDemoData()">Cargar Escenario Real</button>
-            <button class="btn btn-danger" onclick="resetAll()">Limpiar Todo</button>
+            <button class="btn btn-outline" onclick="loadDataFromAPI()">Recargar MongoDB</button>
         </div>
     </div>
 
@@ -93,7 +88,7 @@
         </div>
     </div>
 
-    <!-- Dashboard de Protección (KPIs de Flujo Futuro) -->
+    <!-- Dashboard de Protección -->
     <div class="grid-kpi">
         <div class="kpi-card">
             <div class="kpi-title">Saldo en Caja Real</div>
@@ -178,7 +173,7 @@
             </div>
         </div>
 
-        <!-- Derecha: Deudas Recurrentes y Reglas Inteligentes -->
+        <!-- Derecha: Deudas Recurrentes -->
         <div>
             <div class="panel">
                 <div class="panel-title">2. Matriz de Deudas y Pagos Recurrentes</div>
@@ -216,11 +211,10 @@
                 </div>
             </div>
 
-            <!-- Proyección del Mes Siguiente -->
             <div class="panel">
                 <div class="panel-title">Proyección de Superávit / Reserva</div>
                 <p style="font-size:0.85rem; color: var(--text-muted); margin-bottom: 12px;">
-                    Para evitar la angustia de fin de mes, el sistema bloquea tu saldo líquido disponible según tus deudas pendientes del periodo.
+                    El sistema bloquea tu saldo líquido disponible según tus deudas pendientes del periodo.
                 </p>
                 <div id="projection-card" style="background: var(--bg-primary); padding:14px; border-radius:8px; border: 1px solid var(--border-color);">
                     Cargando proyección...
@@ -230,165 +224,193 @@
     </div>
 
     <script>
-        // Datos de Demostración para Pruebas Avanzadas
-        const demoTransactions = [
-            { id: 1, type: 'income', amount: 3800000, category: 'Ingreso', date: '2026-08-01', description: 'Nómina / Salario Mensual' },
-            { id: 2, type: 'expense', amount: 1200000, category: 'Vivienda', date: '2026-08-02', description: 'Pago de Arriendo' },
-            { id: 3, type: 'expense', amount: 350000, category: 'Alimentación', date: '2026-08-03', description: 'Supermercado Mensual' },
-            { id: 4, type: 'expense', amount: 120000, category: 'Ocio', date: '2026-08-05', description: 'Restaurante / Salida' }
-        ];
+        const API_BASE_URL = "";
 
-        const demoRecurrings = [
-            { id: 101, day: 5, amount: 1200000, description: 'Arriendo Vivienda', paid: true },
-            { id: 102, day: 15, amount: 350000, description: 'Cuota Crédito Bancario', paid: false },
-            { id: 103, day: 20, amount: 180000, description: 'Servicios Públicos (Luz/Agua)', paid: false },
-            { id: 104, day: 28, amount: 110000, description: 'Internet Fibra Óptica', paid: false }
-        ];
-
-        let transactions = JSON.parse(localStorage.getItem('ai_fin_transactions')) || demoTransactions;
-        let recurrings = JSON.parse(localStorage.getItem('ai_fin_recurrings')) || demoRecurrings;
+        let transactions = [];
+        let recurrings = [];
 
         document.getElementById('t-date').valueAsDate = new Date();
-        
-        renderAll();
 
-        function loadDemoData() {
-            transactions = [...demoTransactions];
-            recurrings = [...demoRecurrings];
-            saveData();
-            renderAll();
+        // 1. Cargar datos iniciales desde MongoDB
+        async function loadDataFromAPI() {
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/financials`);
+                if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
+                const data = await res.json();
+                transactions = data.transactions || [];
+                recurrings = data.recurrings || [];
+                renderAll();
+            } catch (err) {
+                console.error("Error al cargar datos de MongoDB:", err);
+            }
         }
 
-        document.getElementById('form-transaction').addEventListener('submit', (e) => {
+        loadDataFromAPI();
+
+        // 2. Registrar Transacción
+        document.getElementById('form-transaction').addEventListener('submit', async (e) => {
             e.preventDefault();
-            transactions.unshift({
-                id: Date.now(),
+            const payload = {
                 type: document.getElementById('t-type').value,
                 amount: parseFloat(document.getElementById('t-amount').value),
                 category: document.getElementById('t-category').value,
                 date: document.getElementById('t-date').value,
                 description: document.getElementById('t-desc').value
-            });
-            saveData();
-            renderAll();
-            e.target.reset();
-            document.getElementById('t-date').valueAsDate = new Date();
+            };
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/transactions`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    e.target.reset();
+                    document.getElementById('t-date').valueAsDate = new Date();
+                    await loadDataFromAPI();
+                } else {
+                    alert("Error al guardar transacción.");
+                }
+            } catch (err) {
+                alert(`Error de red: ${err.message}`);
+            }
         });
 
-        document.getElementById('form-recurring').addEventListener('submit', (e) => {
+        // 3. Registrar Deuda Recurrente
+        document.getElementById('form-recurring').addEventListener('submit', async (e) => {
             e.preventDefault();
-            recurrings.push({
-                id: Date.now(),
+            const payload = {
                 day: parseInt(document.getElementById('r-day').value),
                 amount: parseFloat(document.getElementById('r-amount').value),
-                description: document.getElementById('r-desc').value,
-                paid: false
-            });
-            saveData();
-            renderAll();
-            e.target.reset();
+                description: document.getElementById('r-desc').value
+            };
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/recurrings`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    e.target.reset();
+                    await loadDataFromAPI();
+                } else {
+                    alert("Error al guardar recurrente.");
+                }
+            } catch (err) {
+                alert(`Error de red: ${err.message}`);
+            }
         });
 
-        function togglePaid(id) {
-            const item = recurrings.find(r => r.id === id);
-            if (item) {
-                item.paid = !item.paid;
-                if (item.paid) {
-                    // Genera automáticamente la transacción real de salida
-                    transactions.unshift({
-                        id: Date.now(),
-                        type: 'expense',
-                        amount: item.amount,
-                        category: 'Deudas',
-                        date: new Date().toISOString().slice(0, 10),
-                        description: `[Pago Recurrente] ${item.description}`
-                    });
+        // 4. Toggle Pagado / No Pagado
+        async function togglePaid(id) {
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/recurrings/${id}/toggle`, {
+                    method: 'PATCH'
+                });
+                if (res.ok) {
+                    await loadDataFromAPI();
                 }
-                saveData();
-                renderAll();
+            } catch (err) {
+                console.error("Error al alternar pago:", err);
             }
         }
 
-        function deleteTransaction(id) {
-            transactions = transactions.filter(t => t.id !== id);
-            saveData();
-            renderAll();
+        // 5. Eliminar Transacción
+        async function deleteTransaction(id) {
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/transactions/${id}`, {
+                    method: 'DELETE'
+                });
+                if (res.ok) await loadDataFromAPI();
+            } catch (err) {
+                console.error("Error al borrar transacción:", err);
+            }
         }
 
-        function deleteRecurring(id) {
-            recurrings = recurrings.filter(r => r.id !== id);
-            saveData();
-            renderAll();
-        }
-
-        function saveData() {
-            localStorage.setItem('ai_fin_transactions', JSON.stringify(transactions));
-            localStorage.setItem('ai_fin_recurrings', JSON.stringify(recurrings));
+        // 6. Eliminar Recurrente
+        async function deleteRecurring(id) {
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/recurrings/${id}`, {
+                    method: 'DELETE'
+                });
+                if (res.ok) await loadDataFromAPI();
+            } catch (err) {
+                console.error("Error al borrar recurrente:", err);
+            }
         }
 
         function formatCurrency(num) {
             return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(num);
         }
 
+        // 7. Renderizado UI
         function renderAll() {
-            // Render Tabla Transacciones
-            document.getElementById('table-transactions').innerHTML = transactions.map(t => `
-                <tr>
-                    <td>${t.date}</td>
-                    <td>${t.description}</td>
-                    <td style="font-weight:bold; color: ${t.type === 'income' ? 'var(--accent-green)' : 'var(--accent-red)'}">
-                        ${t.type === 'income' ? '+' : '-'}${formatCurrency(t.amount)}
-                    </td>
-                    <td><span class="action-del" onclick="deleteTransaction(${t.id})">&times;</span></td>
-                </tr>
-            `).join('');
+            // Tabla Transacciones
+            const tableTransactions = document.getElementById('table-transactions');
+            if (transactions.length === 0) {
+                tableTransactions.innerHTML = `<tr><td colspan="4" style="text-align:center; color: var(--text-muted);">Sin movimientos registrados</td></tr>`;
+            } else {
+                tableTransactions.innerHTML = transactions.map(t => `
+                    <tr>
+                        <td>${t.date}</td>
+                        <td>${t.description}</td>
+                        <td style="font-weight:bold; color: ${t.type === 'income' ? 'var(--accent-green)' : 'var(--accent-red)'}">
+                            ${t.type === 'income' ? '+' : '-'}${formatCurrency(t.amount)}
+                        </td>
+                        <td><span class="action-del" onclick="deleteTransaction('${t._id || t.id}')">&times;</span></td>
+                    </tr>
+                `).join('');
+            }
 
-            // Render Tabla Recurrentes
-            document.getElementById('table-recurring').innerHTML = recurrings.map(r => `
-                <tr>
-                    <td>Día ${r.day}</td>
-                    <td>${r.description}</td>
-                    <td style="font-weight:bold;">${formatCurrency(r.amount)}</td>
-                    <td>
-                        <button class="btn ${r.paid ? 'btn-outline' : 'btn-purple'}" style="padding:2px 6px; font-size:0.7rem;" onclick="togglePaid(${r.id})">
-                            ${r.paid ? '✓ Pagado' : 'Marcar Pagado'}
-                        </button>
-                    </td>
-                    <td><span class="action-del" onclick="deleteRecurring(${r.id})">&times;</span></td>
-                </tr>
-            `).join('');
+            // Tabla Recurrentes
+            const tableRecurring = document.getElementById('table-recurring');
+            if (recurrings.length === 0) {
+                tableRecurring.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--text-muted);">Sin deudas recurrentes programadas</td></tr>`;
+            } else {
+                tableRecurring.innerHTML = recurrings.map(r => `
+                    <tr>
+                        <td>Día ${r.day}</td>
+                        <td>${r.description}</td>
+                        <td style="font-weight:bold;">${formatCurrency(r.amount)}</td>
+                        <td>
+                            <button class="btn ${r.paid ? 'btn-outline' : 'btn-purple'}" style="padding:2px 6px; font-size:0.7rem;" onclick="togglePaid('${r._id || r.id}')">
+                                ${r.paid ? '✓ Pagado' : 'Marcar Pagado'}
+                            </button>
+                        </td>
+                        <td><span class="action-del" onclick="deleteRecurring('${r._id || r.id}')">&times;</span></td>
+                    </tr>
+                `).join('');
+            }
 
-            // Cálculos
+            // Cálculos de métricas
             const totalIncome = transactions.filter(t => t.type === 'income').reduce((a, b) => a + b.amount, 0);
             const totalExpense = transactions.filter(t => t.type === 'expense').reduce((a, b) => a + b.amount, 0);
             const cashBalance = totalIncome - totalExpense;
 
-            // Deudas pendientes este mes
             const pendingRecurring = recurrings.filter(r => !r.paid).reduce((a, b) => a + b.amount, 0);
             const freeBalance = cashBalance - pendingRecurring;
 
-            // Ritmo de gasto diario (días transcurridos)
             const dayOfMonth = new Date().getDate();
             const dailyBurnRate = totalExpense / (dayOfMonth || 1);
-            const runwayDays = dailyBurnRate > 0 ? Math.floor(cashBalance / dailyBurnRate) : 99;
+            const runwayDays = dailyBurnRate > 0 ? Math.floor(cashBalance / dailyBurnRate) : 0;
 
             document.getElementById('kpi-cash').innerText = formatCurrency(cashBalance);
             document.getElementById('kpi-reserved').innerText = formatCurrency(pendingRecurring);
             document.getElementById('kpi-free').innerText = formatCurrency(freeBalance);
             document.getElementById('kpi-runway').innerText = `${runwayDays} días`;
 
-            // Proyección
             const projCard = document.getElementById('projection-card');
             if (freeBalance < 0) {
                 projCard.style.borderColor = 'var(--accent-red)';
-                projCard.innerHTML = `<strong style="color:var(--accent-red)">⚠️ ALERTA DE RIESGO:</strong> Si no recortas gastos inmediatos, te faltarán <strong>${formatCurrency(Math.abs(freeBalance))}</strong> para cubrir tus compromisos del mes.`;
+                projCard.innerHTML = `<strong style="color:var(--accent-red)">⚠️ ALERTA DE RIESGO:</strong> Te faltan <strong>${formatCurrency(Math.abs(freeBalance))}</strong> para cubrir tus compromisos del mes.`;
             } else {
                 projCard.style.borderColor = 'var(--accent-green)';
-                projCard.innerHTML = `<strong style="color:var(--accent-green)">🛡️ ZONA SEGURA:</strong> Tienes cubiertas todas tus deudas del mes. Tu margen libre para ahorro o imprevistos es de <strong>${formatCurrency(freeBalance)}</strong>.`;
+                projCard.innerHTML = `<strong style="color:var(--accent-green)">🛡️ ZONA SEGURA:</strong> Tienes cubiertas todas tus deudas del mes. Margen libre: <strong>${formatCurrency(freeBalance)}</strong>.`;
             }
         }
 
-        // CONSULTA AL BACKEND PROPIO (QUE MANEJA LA KEY DE OPENAI EN EL .ENV)
+        // Consultar Copiloto OpenAI
         async function consultOpenAI() {
             const responseBox = document.getElementById('ai-response');
             responseBox.innerText = "🧠 Consultando con la IA... Analizando tu flujo de caja...";
@@ -396,7 +418,7 @@
             const totalIncome = transactions.filter(t => t.type === 'income').reduce((a, b) => a + b.amount, 0);
             const totalExpense = transactions.filter(t => t.type === 'expense').reduce((a, b) => a + b.amount, 0);
             const pendingRecurring = recurrings.filter(r => !r.paid);
-
+   
             const payload = {
                 caja_actual: totalIncome - totalExpense,
                 ingresos_totales: totalIncome,
@@ -404,34 +426,38 @@
                 deudas_pendientes_por_pagar: pendingRecurring,
                 historial_reciente: transactions.slice(0, 10)
             };
-
+ 
             try {
                 const res = await fetch('/api/ai-consult', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
 
-                const data = await res.json();
-                if (data.advice) {
+                const rawText = await res.text();
+
+                if (!rawText || rawText.trim() === "") {
+                    throw new Error(`El backend devolvió una respuesta vacía (HTTP ${res.status}).`);
+                }
+
+                let data;
+                try {
+                    data = JSON.parse(rawText);
+                } catch (parseError) {
+                    throw new Error(`El servidor no devolvió JSON válido. Respuesta: ${rawText.substring(0, 100)}...`);
+                }
+
+                if (res.ok && data.advice) {
                     responseBox.innerText = data.advice;
                 } else if (data.error) {
-                    responseBox.innerText = `Error: ${data.error}`;
+                    responseBox.innerText = `⚠️ Error del Servidor/OpenAI: ${data.error}`;
+                } else {
+                    responseBox.innerText = "⚠️ Respuesta inesperada del servidor.";
                 }
-            } catch (err) {
-                responseBox.innerText = `Error de conexión con el backend: ${err.message}`;
-            }
-        }
 
-        function resetAll() {
-            if (confirm("¿Borrar todos los registros?")) {
-                localStorage.removeItem('ai_fin_transactions');
-                localStorage.removeItem('ai_fin_recurrings');
-                transactions = [];
-                recurrings = [];
-                renderAll();
+            } catch (err) {
+                console.error("Error en consultOpenAI:", err);
+                responseBox.innerText = `❌ Error: ${err.message}`;
             }
         }
     </script>

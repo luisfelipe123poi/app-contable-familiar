@@ -161,7 +161,7 @@ Analiza el siguiente estado financiero y dame una estrategia concisa para evitar
 - Últimos Movimientos: ${JSON.stringify(historial_reciente)}`;
 
     try {
-        const fetch = (await import('node-fetch')).default;
+        // Uso de fetch nativo en Node.js 18+ (evita dependencia de node-fetch/ESM)
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
@@ -182,7 +182,7 @@ Analiza el siguiente estado financiero y dame una estrategia concisa para evitar
         if (data.choices && data.choices[0]) {
             res.json({ advice: data.choices[0].message.content });
         } else {
-            res.status(500).json({ error: data.error ? data.error.message : 'Error OpenAI' });
+            res.status(500).json({ error: data.error ? data.error.message : 'Error al procesar la respuesta de OpenAI' });
         }
     } catch (error) {
         res.status(500).json({ error: error.message });

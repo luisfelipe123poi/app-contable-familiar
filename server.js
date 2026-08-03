@@ -7,7 +7,7 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Configuración de CORS para aceptar peticiones desde Cloudflare y Localhost
+// 1. Configuración de CORS
 const allowedOrigins = [
     'https://contable-familiar.prestigecloser.com',
     'http://localhost:3000',
@@ -19,7 +19,7 @@ app.use(cors({
         if (!origin || allowedOrigins.indexOf(origin) !== -1) {
             callback(null, true);
         } else {
-            callback(null, true); // Permite acceso universal en desarrollo/producción
+            callback(null, true); // Permite acceso en producción/desarrollo
         }
     },
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -28,17 +28,17 @@ app.use(cors({
 
 app.use(express.json());
 
-// Servir la carpeta estática "contable pagina"
+// 2. Servir la carpeta estática del frontend ("contable pagina")
 app.use(express.static(path.join(__dirname, 'contable pagina')));
 
-// 1. Conexión a MongoDB
+// 3. Conexión a MongoDB
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/control_financiero';
 
 mongoose.connect(MONGO_URI)
     .then(() => console.log('⚡ Conectado exitosamente a MongoDB.'))
     .catch(err => console.error('❌ Error al conectar a MongoDB:', err.message));
 
-// 2. Esquemas y Modelos
+// 4. Esquemas y Modelos Mongoose
 const transactionSchema = new mongoose.Schema({
     type: { type: String, enum: ['income', 'expense'], required: true },
     amount: { type: Number, required: true },
@@ -61,6 +61,7 @@ const Recurring = mongoose.model('Recurring', recurringSchema);
 
 // --- RUTAS DE LA API ---
 
+// Obtener todas las transacciones y deudas
 app.get('/api/financials', async (req, res) => {
     try {
         const transactions = await Transaction.find().sort({ date: -1, _id: -1 });
@@ -71,6 +72,7 @@ app.get('/api/financials', async (req, res) => {
     }
 });
 
+// Crear nueva transacción
 app.post('/api/transactions', async (req, res) => {
     try {
         const { type, amount, category, date, description } = req.body;
@@ -85,6 +87,7 @@ app.post('/api/transactions', async (req, res) => {
     }
 });
 
+// Eliminar transacción
 app.delete('/api/transactions/:id', async (req, res) => {
     try {
         await Transaction.findByIdAndDelete(req.params.id);
@@ -94,6 +97,7 @@ app.delete('/api/transactions/:id', async (req, res) => {
     }
 });
 
+// Crear nueva obligación recurrente
 app.post('/api/recurrings', async (req, res) => {
     try {
         const { day, amount, description } = req.body;
@@ -108,6 +112,7 @@ app.post('/api/recurrings', async (req, res) => {
     }
 });
 
+// Alternar estado de pago de deuda (Si se paga, se crea el gasto automáticamente)
 app.patch('/api/recurrings/:id/toggle', async (req, res) => {
     try {
         const recurring = await Recurring.findById(req.params.id);
@@ -133,6 +138,7 @@ app.patch('/api/recurrings/:id/toggle', async (req, res) => {
     }
 });
 
+// Eliminar obligación recurrente
 app.delete('/api/recurrings/:id', async (req, res) => {
     try {
         await Recurring.findByIdAndDelete(req.params.id);
@@ -142,17 +148,18 @@ app.delete('/api/recurrings/:id', async (req, res) => {
     }
 });
 
+// Consulta de Auditoría Financiera con OpenAI (GPT-4o)
 app.post('/api/ai-consult', async (req, res) => {
     const apiKey = process.env.OPENAI_API_KEY;
 
     if (!apiKey) {
-        return res.status(500).json({ error: 'OPENAI_API_KEY no configurada en .env o en el panel de Render' });
+        return res.status(500).json({ error: 'OPENAI_API_KEY no está configurada en las variables de entorno.' });
     }
 
     const { caja_actual, ingresos_totales, gastos_totales, deudas_pendientes_por_pagar, historial_reciente } = req.body;
 
     const prompt = `Actúa como un Asesor Financiero Personal Senior de alto nivel.
-Analiza el siguiente estado financiero y dame una estrategia concisa para evitar quedar en cero:
+Analiza el siguiente estado financiero y dame una estrategia concisa, directa y con pasos claros para optimizar el flujo de caja y evitar quedar en cero:
 
 - Caja Actual Líquida: $${caja_actual}
 - Ingresos Totales Mes: $${ingresos_totales}
@@ -161,7 +168,6 @@ Analiza el siguiente estado financiero y dame una estrategia concisa para evitar
 - Últimos Movimientos: ${JSON.stringify(historial_reciente)}`;
 
     try {
-        // Uso de fetch nativo en Node.js 18+ (evita dependencia de node-fetch/ESM)
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
@@ -171,7 +177,7 @@ Analiza el siguiente estado financiero y dame una estrategia concisa para evitar
             body: JSON.stringify({
                 model: 'gpt-4o',
                 messages: [
-                    { role: 'system', content: 'Eres un consultor financiero personal directo y analítico.' },
+                    { role: 'system', content: 'Eres un consultor financiero personal analítico, práctico y directo.' },
                     { role: 'user', content: prompt }
                 ],
                 temperature: 0.5
@@ -179,6 +185,7 @@ Analiza el siguiente estado financiero y dame una estrategia concisa para evitar
         });
 
         const data = await response.json();
+
         if (data.choices && data.choices[0]) {
             res.json({ advice: data.choices[0].message.content });
         } else {
@@ -189,7 +196,7 @@ Analiza el siguiente estado financiero y dame una estrategia concisa para evitar
     }
 });
 
-// Ruta principal para servir el Frontend desde "contable pagina"
+// Fallback SPA para servir index.html desde la carpeta "contable pagina"
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'contable pagina', 'index.html'));
 });

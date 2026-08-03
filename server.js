@@ -1,219 +1,166 @@
 const express = require('express');
-const cors = require('cors');
 const mongoose = require('mongoose');
+const cors = require('cors');
 const path = require('path');
-require('dotenv').config();
+const { OpenAI } = require('openai');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 
-// 1. Configuración de CORS dinámica y permisiva
-const allowedOrigins = [
-    'https://contable-familiar.prestigecloser.com',
-    'http://localhost:3000',
-    'http://127.0.0.1:3000'
-];
-
-const corsOptions = {
-    origin: function (origin, callback) {
-        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-            callback(null, true);
-        } else {
-            callback(null, true); // Permite solicitudes sin bloquear orígenes en prod/dev
-        }
-    },
-    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-    credentials: true,
-    optionsSuccessStatus: 200 // Responde 200 OK a las verificaciones OPTIONS (Preflight)
-};
-
-app.use(cors(corsOptions));
-
-// Manejo global de Preflight (OPTIONS) corregido para Express 4+
-// Evita el error 405 en proxies de Cloudflare y navegadores
-app.options(/(.*)/, cors(corsOptions));
-
+// Middlewares
+app.use(cors());
 app.use(express.json());
 
-// 2. Servir la carpeta estática del frontend ("contable pagina")
-app.use(express.static(path.join(__dirname, 'contable pagina')));
+// Servir archivos estáticos (tu HTML/CSS/JS del frontend)
+app.use(express.static(path.join(__dirname, 'public')));
 
-// 3. Conexión a MongoDB
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/control_financiero';
+// Inicializar OpenAI
+const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY
+});
 
-mongoose.connect(MONGO_URI)
-    .then(() => console.log('⚡ Conectado exitosamente a MongoDB.'))
-    .catch(err => console.error('❌ Error al conectar a MongoDB:', err.message));
+// --- MODELOS DE MONGOOSE ---
 
-// 4. Esquemas y Modelos Mongoose
-const transactionSchema = new mongoose.Schema({
+const TransactionSchema = new mongoose.Schema({
     type: { type: String, enum: ['income', 'expense'], required: true },
     amount: { type: Number, required: true },
     category: { type: String, required: true },
     date: { type: String, required: true },
-    description: { type: String, required: true },
-    createdAt: { type: Date, default: Date.now }
-});
+    description: { type: String, required: true }
+}, { timestamps: true });
 
-const recurringSchema = new mongoose.Schema({
+const RecurringSchema = new mongoose.Schema({
     day: { type: Number, required: true, min: 1, max: 31 },
     amount: { type: Number, required: true },
     description: { type: String, required: true },
-    paid: { type: Boolean, default: false },
-    createdAt: { type: Date, default: Date.now }
-});
+    paid: { type: Boolean, default: false }
+}, { timestamps: true });
 
-const Transaction = mongoose.model('Transaction', transactionSchema);
-const Recurring = mongoose.model('Recurring', recurringSchema);
+const Transaction = mongoose.model('Transaction', TransactionSchema);
+const Recurring = mongoose.model('Recurring', RecurringSchema);
 
-// --- RUTAS DE LA API ---
+// --- ENDPOINTS / RUTAS ---
 
-// GET /api/financials - Carga inicial
+// 1. Obtener todos los datos financieros
 app.get('/api/financials', async (req, res) => {
     try {
-        const transactions = await Transaction.find().sort({ date: -1, _id: -1 });
+        const transactions = await Transaction.find().sort({ date: -1 });
         const recurrings = await Recurring.find().sort({ day: 1 });
         res.json({ transactions, recurrings });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: 'Error al obtener datos financieros: ' + err.message });
     }
 });
 
-// POST /api/transactions - Crear movimiento
+// 2. Registrar Transacción
 app.post('/api/transactions', async (req, res) => {
     try {
-        const { type, amount, category, date, description } = req.body;
-        if (!type || !amount || !category || !date || !description) {
-            return res.status(400).json({ error: 'Todos los campos son obligatorios' });
-        }
-        const newTransaction = new Transaction({ type, amount, category, date, description });
-        const savedTransaction = await newTransaction.save();
-        res.status(201).json(savedTransaction);
+        const newDoc = new Transaction(req.body);
+        await newDoc.save();
+        res.status(201).json(newDoc);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(400).json({ error: err.message });
     }
 });
 
-// DELETE /api/transactions/:id - Eliminar movimiento
+// 3. Eliminar Transacción
 app.delete('/api/transactions/:id', async (req, res) => {
     try {
         await Transaction.findByIdAndDelete(req.params.id);
-        res.json({ success: true, deletedId: req.params.id });
+        res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// POST /api/recurrings - Programar obligación
+// 4. Registrar Deuda Recurrente
 app.post('/api/recurrings', async (req, res) => {
     try {
-        const { day, amount, description } = req.body;
-        if (!day || !amount || !description) {
-            return res.status(400).json({ error: 'Todos los campos son obligatorios' });
-        }
-        const newRecurring = new Recurring({ day, amount, description, paid: false });
-        const savedRecurring = await newRecurring.save();
-        res.status(201).json(savedRecurring);
+        const newDoc = new Recurring(req.body);
+        await newDoc.save();
+        res.status(201).json(newDoc);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(400).json({ error: err.message });
     }
 });
 
-// PATCH /api/recurrings/:id/toggle - Marcar/Desmarcar pago
+// 5. Toggle Pagado/No Pagado en Recurrente
 app.patch('/api/recurrings/:id/toggle', async (req, res) => {
     try {
-        const recurring = await Recurring.findById(req.params.id);
-        if (!recurring) return res.status(404).json({ error: 'Deuda no encontrada' });
-
-        recurring.paid = !recurring.paid;
-        await recurring.save();
-
-        if (recurring.paid) {
-            const today = new Date().toISOString().slice(0, 10);
-            await Transaction.create({
-                type: 'expense',
-                amount: recurring.amount,
-                category: 'Deudas',
-                date: today,
-                description: `[Pago Recurrente] ${recurring.description}`
-            });
-        }
-
-        res.json(recurring);
+        const doc = await Recurring.findById(req.params.id);
+        if (!doc) return res.status(404).json({ error: 'No encontrado' });
+        doc.paid = !doc.paid;
+        await doc.save();
+        res.json(doc);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// DELETE /api/recurrings/:id - Eliminar de la matriz
+// 6. Eliminar Deuda Recurrente
 app.delete('/api/recurrings/:id', async (req, res) => {
     try {
         await Recurring.findByIdAndDelete(req.params.id);
-        res.json({ success: true, deletedId: req.params.id });
+        res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// POST /api/ai-consult - Copiloto IA (OpenAI API)
+// 7. Consulta a OpenAI Copilot
 app.post('/api/ai-consult', async (req, res) => {
-    const apiKey = process.env.OPENAI_API_KEY;
-
-    if (!apiKey) {
-        return res.status(500).json({ error: 'OPENAI_API_KEY no configurada en las variables de entorno (.env/Render).' });
-    }
-
-    const { caja_actual, ingresos_totales, gastos_totales, deudas_pendientes_por_pagar, historial_reciente } = req.body;
-
-    const prompt = `Actúa como un Asesor Financiero Personal Senior de alto nivel.
-Analiza el siguiente estado financiero y dame una estrategia concisa para evitar quedar en cero:
-
-- Caja Actual Líquida: $${caja_actual}
-- Ingresos Totales Mes: $${ingresos_totales} - Gastos Totales Mes: $${gastos_totales}
-- Deudas Fijas Pendientes: ${JSON.stringify(deudas_pendientes_por_pagar)}
-- Últimos Movimientos: ${JSON.stringify(historial_reciente)}`;
-
     try {
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-                model: 'gpt-4o',
-                messages: [
-                    { role: 'system', content: 'Eres un consultor financiero personal directo y analítico.' },
-                    { role: 'user', content: prompt }
-                ],
-                temperature: 0.5
-            })
+        const { caja_actual, ingresos_totales, gastos_totales, deudas_pendientes_por_pagar, historial_reciente } = req.body;
+
+        const prompt = `
+            Actúa como un copiloto financiero experto para una familia/negocio.
+            Analiza el siguiente resumen de flujo de caja y da un consejo estratégico, directo y conciso (máximo 3 párrafos cortos):
+
+            - Saldo Actual en Caja: $${caja_actual}
+            - Ingresos Totales: $${ingresos_totales}
+            - Gastos Totales: $${gastos_totales}
+            - Compromisos Pendientes por Pagar: ${JSON.stringify(deudas_pendientes_por_pagar)}
+            - Últimos movimientos: ${JSON.stringify(historial_reciente)}
+
+            Indica riesgos inmediatos, margen real de maniobra y 2 recomendaciones concretas.
+        `;
+
+        const completion = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0.7,
+            max_tokens: 350
         });
 
-        const data = await response.json();
+        const advice = completion.choices[0].message.content;
+        res.json({ advice });
 
-        if (response.ok && data.choices && data.choices[0]) {
-            res.json({ advice: data.choices[0].message.content });
-        } else {
-            res.status(500).json({ 
-                error: data.error ? data.error.message : 'Error al procesar la respuesta de OpenAI' 
-            });
-        }
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+    } catch (err) {
+        console.error("Error OpenAI:", err);
+        res.status(500).json({ error: err.message });
     }
 });
 
-// Fallback SPA - Sirve index.html solo para solicitudes web (no llamadas a /api/)
+// Fallback para servir el index.html en cualquier otra ruta
 app.get('*', (req, res) => {
-    if (req.path.startsWith('/api/')) {
-        return res.status(404).json({ error: 'Ruta de API no encontrada' });
-    }
-    res.sendFile(path.join(__dirname, 'contable pagina', 'index.html'));
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// --- BINDING EXPLICITO A HOST 0.0.0.0 PARA RENDER ---
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Servidor corriendo exitosamente en el puerto ${PORT}`);
-});
+// --- CONEXIÓN Y SERVIDOR ---
+
+const PORT = process.env.PORT || 3000;
+const MONGO_URI = process.env.MONGO_URI;
+
+if (!MONGO_URI) {
+    console.error("❌ ERROR CRÍTICO: La variable MONGO_URI no está configurada.");
+}
+
+mongoose.connect(MONGO_URI)
+    .then(() => {
+        console.log('✅ Conectado exitosamente a MongoDB');
+        app.listen(PORT, () => {
+            console.log(`🚀 Servidor ejecutándose en el puerto ${PORT}`);
+        });
+    })
+    .catch(err => {
+        console.error('❌ Error de conexión a MongoDB:', err.message);
+    });

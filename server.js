@@ -10,8 +10,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Servir archivos estáticos (tu HTML/CSS/JS del frontend)
-app.use(express.static(path.join(__dirname, 'public')));
+// Servir archivos estáticos apuntando a "CONTABLE PAGINA"
+app.use(express.static(path.join(__dirname, 'CONTABLE PAGINA')));
 
 // Inicializar OpenAI
 const openai = new OpenAI({
@@ -140,9 +140,9 @@ app.post('/api/ai-consult', async (req, res) => {
     }
 });
 
-// Fallback para servir el index.html en cualquier otra ruta
+// Fallback para servir el index.html desde "CONTABLE PAGINA"
 app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(__dirname, 'CONTABLE PAGINA', 'index.html'));
 });
 
 // --- CONEXIÓN Y SERVIDOR ---

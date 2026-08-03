@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control Financiero Inteligente & AI Copilot</title>
+    <style>
+        :root {
+            --bg-primary: #090d16;
+            --bg-secondary: #111827;
+            --bg-card: #1f2937;
+            --text-main: #f9fafb;
+            --text-muted: #9ca3af;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --accent-blue: #3b82f6;
+            --accent-purple: #8b5cf6;
+            --accent-amber: #f59e0b;
+            --border-color: #374151;
+            --radius: 12px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+        body { background-color: var(--bg-primary); color: var(--text-main); padding: 20px; line-height: 1.5; }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 16px; flex-wrap: wrap; gap: 12px; }
+        .header h1 { font-size: 1.8rem; background: linear-gradient(90deg, #3b82f6, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+        .btn { background: var(--accent-blue); color: #fff; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-size: 0.85rem; }
+        .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn-purple { background: var(--accent-purple); }
+        .btn-danger { background: var(--accent-red); }
+        .btn-outline { background: transparent; border: 1px solid var(--border-color); color: var(--text-muted); }
+
+        /* AI Advisor Box */
+        .ai-panel { background: linear-gradient(135deg, #111827 0%, #1f2937 100%); border: 1px solid var(--accent-purple); border-radius: var(--radius); padding: 20px; margin-bottom: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .ai-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+        .ai-response { background: rgba(0,0,0,0.3); border-left: 4px solid var(--accent-purple); padding: 16px; border-radius: 6px; font-size: 0.95rem; white-space: pre-line; color: #e5e7eb; min-height: 80px; }
+
+        /* KPI Dashboard */
+        .grid-kpi { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .kpi-card { background: var(--bg-secondary); padding: 18px; border-radius: var(--radius); border: 1px solid var(--border-color); position: relative; }
+        .kpi-title { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
+        .kpi-value { font-size: 1.6rem; font-weight: 800; margin-top: 6px; }
+        .kpi-subtext { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
+
+        .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+        @media (max-width: 1024px) { .layout { grid-template-columns: 1fr; } }
+
+        .panel { background: var(--bg-secondary); padding: 20px; border-radius: var(--radius); border: 1px solid var(--border-color); margin-bottom: 24px; }
+        .panel-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
+
+        form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+        .full { grid-column: 1 / -1; }
+        
+        label { font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 4px; font-weight: 600; }
+        input, select { width: 100%; padding: 10px; background: var(--bg-primary); border: 1px solid var(--border-color); color: #fff; border-radius: 6px; font-size: 0.9rem; }
+        input:focus, select:focus { outline: none; border-color: var(--accent-blue); }
+
+        .table-container { overflow-x: auto; max-height: 320px; overflow-y: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left; }
+        th { background: var(--bg-primary); color: var(--text-muted); padding: 10px; position: sticky; top: 0; z-index: 10; }
+        td { padding: 10px; border-bottom: 1px solid var(--border-color); }
+
+        .badge { padding: 3px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; }
+        .badge-income { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); }
+        .badge-expense { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); }
+        
+        .action-del { cursor: pointer; color: var(--accent-red); font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div>
+            <h1>Plataforma Inteligente de Flujo de Caja</h1>
+            <p style="font-size: 0.85rem; color: var(--text-muted);">Protección de Deudas Recurrentes & Auditoría con OpenAI</p>
+        </div>
+        <div>
+            <button class="btn btn-outline" onclick="loadDemoData()">Cargar Escenario Real</button>
+            <button class="btn btn-danger" onclick="resetAll()">Limpiar Todo</button>
+        </div>
+    </div>
+
+    <!-- Panel de IA Asesora -->
+    <div class="ai-panel">
+        <div class="ai-title">
+            <span style="font-weight: 700; color: var(--accent-purple); font-size: 1.1rem;">🤖 Copiloto Financiero IA</span>
+            <button class="btn btn-purple" onclick="consultOpenAI()">Consultar Estrategia a OpenAI</button>
+        </div>
+        <div id="ai-response" class="ai-response">
+            El sistema analizará tus cuentas recurrentes, ingresos y patrón de consumo para darte una estrategia detallada y evitar quedar en cero. Haz clic en el botón superior para auditar.
+        </div>
+    </div>
+
+    <!-- Dashboard de Protección (KPIs de Flujo Futuro) -->
+    <div class="grid-kpi">
+        <div class="kpi-card">
+            <div class="kpi-title">Saldo en Caja Real</div>
+            <div class="kpi-value" id="kpi-cash">$0</div>
+            <div class="kpi-subtext">Dinero líquido disponible hoy</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-title">Reservado para Deudas (Mes)</div>
+            <div class="kpi-value" style="color: var(--accent-amber);" id="kpi-reserved">$0</div>
+            <div class="kpi-subtext">Compromisos recurrentes por pagar</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-title">Saldo Libre (Sin Riesgo)</div>
+            <div class="kpi-value" style="color: var(--accent-green);" id="kpi-free">$0</div>
+            <div class="kpi-subtext">Lo único que puedes gastar libremente</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-title">Días de Autonomía en Caja</div>
+            <div class="kpi-value" style="color: var(--accent-blue);" id="kpi-runway">0 días</div>
+            <div class="kpi-subtext">Basado en tu ritmo de gasto diario</div>
+        </div>
+    </div>
+
+    <div class="layout">
+        <!-- Izquierda: Registro y Libro Diario -->
+        <div>
+            <div class="panel">
+                <div class="panel-title">1. Registrar Entrada / Salida Efectiva</div>
+                <form id="form-transaction">
+                    <div>
+                        <label>Tipo</label>
+                        <select id="t-type">
+                            <option value="expense">Salida / Gasto</option>
+                            <option value="income">Entrada / Ingreso</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Monto ($)</label>
+                        <input type="number" id="t-amount" placeholder="100000" required>
+                    </div>
+                    <div>
+                        <label>Categoría</label>
+                        <select id="t-category">
+                            <option value="Alimentación">Alimentación</option>
+                            <option value="Servicios">Servicios Públicos</option>
+                            <option value="Vivienda">Vivienda</option>
+                            <option value="Transporte">Transporte</option>
+                            <option value="Deudas">Deudas / Cuotas</option>
+                            <option value="Ocio">Ocio / Antojos</option>
+                            <option value="Ingreso">Ingreso Laboral</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Fecha</label>
+                        <input type="date" id="t-date" required>
+                    </div>
+                    <div class="full">
+                        <label>Concepto</label>
+                        <input type="text" id="t-desc" placeholder="Ej: Compra de supermercado" required>
+                    </div>
+                    <div class="full">
+                        <button type="submit" class="btn" style="width:100%;">Registrar Movimiento</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="panel">
+                <div class="panel-title">Movimientos Reales del Mes</div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Concepto</th>
+                                <th>Monto</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-transactions"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Derecha: Deudas Recurrentes y Reglas Inteligentes -->
+        <div>
+            <div class="panel">
+                <div class="panel-title">2. Matriz de Deudas y Pagos Recurrentes</div>
+                <form id="form-recurring">
+                    <div>
+                        <label>Día de Pago (1-31)</label>
+                        <input type="number" id="r-day" min="1" max="31" placeholder="Ej: 15" required>
+                    </div>
+                    <div>
+                        <label>Monto Estimado ($)</label>
+                        <input type="number" id="r-amount" placeholder="Ej: 500000" required>
+                    </div>
+                    <div class="full">
+                        <label>Nombre del Compromiso / Obligación</label>
+                        <input type="text" id="r-desc" placeholder="Ej: Tarjeta de Crédito, Arriendo, Internet" required>
+                    </div>
+                    <div class="full">
+                        <button type="submit" class="btn btn-outline" style="width:100%;">+ Programar Obligación Fija</button>
+                    </div>
+                </form>
+
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Día Pago</th>
+                                <th>Obligación</th>
+                                <th>Monto</th>
+                                <th>Estado</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-recurring"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Proyección del Mes Siguiente -->
+            <div class="panel">
+                <div class="panel-title">Proyección de Superávit / Reserva</div>
+                <p style="font-size:0.85rem; color: var(--text-muted); margin-bottom: 12px;">
+                    Para evitar la angustia de fin de mes, el sistema bloquea tu saldo líquido disponible según tus deudas pendientes del periodo.
+                </p>
+                <div id="projection-card" style="background: var(--bg-primary); padding:14px; border-radius:8px; border: 1px solid var(--border-color);">
+                    Cargando proyección...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Datos de Demostración para Pruebas Avanzadas
+        const demoTransactions = [
+            { id: 1, type: 'income', amount: 3800000, category: 'Ingreso', date: '2026-08-01', description: 'Nómina / Salario Mensual' },
+            { id: 2, type: 'expense', amount: 1200000, category: 'Vivienda', date: '2026-08-02', description: 'Pago de Arriendo' },
+            { id: 3, type: 'expense', amount: 350000, category: 'Alimentación', date: '2026-08-03', description: 'Supermercado Mensual' },
+            { id: 4, type: 'expense', amount: 120000, category: 'Ocio', date: '2026-08-05', description: 'Restaurante / Salida' }
+        ];
+
+        const demoRecurrings = [
+            { id: 101, day: 5, amount: 1200000, description: 'Arriendo Vivienda', paid: true },
+            { id: 102, day: 15, amount: 350000, description: 'Cuota Crédito Bancario', paid: false },
+            { id: 103, day: 20, amount: 180000, description: 'Servicios Públicos (Luz/Agua)', paid: false },
+            { id: 104, day: 28, amount: 110000, description: 'Internet Fibra Óptica', paid: false }
+        ];
+
+        let transactions = JSON.parse(localStorage.getItem('ai_fin_transactions')) || demoTransactions;
+        let recurrings = JSON.parse(localStorage.getItem('ai_fin_recurrings')) || demoRecurrings;
+
+        document.getElementById('t-date').valueAsDate = new Date();
+        
+        renderAll();
+
+        function loadDemoData() {
+            transactions = [...demoTransactions];
+            recurrings = [...demoRecurrings];
+            saveData();
+            renderAll();
+        }
+
+        document.getElementById('form-transaction').addEventListener('submit', (e) => {
+            e.preventDefault();
+            transactions.unshift({
+                id: Date.now(),
+                type: document.getElementById('t-type').value,
+                amount: parseFloat(document.getElementById('t-amount').value),
+                category: document.getElementById('t-category').value,
+                date: document.getElementById('t-date').value,
+                description: document.getElementById('t-desc').value
+            });
+            saveData();
+            renderAll();
+            e.target.reset();
+            document.getElementById('t-date').valueAsDate = new Date();
+        });
+
+        document.getElementById('form-recurring').addEventListener('submit', (e) => {
+            e.preventDefault();
+            recurrings.push({
+                id: Date.now(),
+                day: parseInt(document.getElementById('r-day').value),
+                amount: parseFloat(document.getElementById('r-amount').value),
+                description: document.getElementById('r-desc').value,
+                paid: false
+            });
+            saveData();
+            renderAll();
+            e.target.reset();
+        });
+
+        function togglePaid(id) {
+            const item = recurrings.find(r => r.id === id);
+            if (item) {
+                item.paid = !item.paid;
+                if (item.paid) {
+                    // Genera automáticamente la transacción real de salida
+                    transactions.unshift({
+                        id: Date.now(),
+                        type: 'expense',
+                        amount: item.amount,
+                        category: 'Deudas',
+                        date: new Date().toISOString().slice(0, 10),
+                        description: `[Pago Recurrente] ${item.description}`
+                    });
+                }
+                saveData();
+                renderAll();
+            }
+        }
+
+        function deleteTransaction(id) {
+            transactions = transactions.filter(t => t.id !== id);
+            saveData();
+            renderAll();
+        }
+
+        function deleteRecurring(id) {
+            recurrings = recurrings.filter(r => r.id !== id);
+            saveData();
+            renderAll();
+        }
+
+        function saveData() {
+            localStorage.setItem('ai_fin_transactions', JSON.stringify(transactions));
+            localStorage.setItem('ai_fin_recurrings', JSON.stringify(recurrings));
+        }
+
+        function formatCurrency(num) {
+            return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(num);
+        }
+
+        function renderAll() {
+            // Render Tabla Transacciones
+            document.getElementById('table-transactions').innerHTML = transactions.map(t => `
+                <tr>
+                    <td>${t.date}</td>
+                    <td>${t.description}</td>
+                    <td style="font-weight:bold; color: ${t.type === 'income' ? 'var(--accent-green)' : 'var(--accent-red)'}">
+                        ${t.type === 'income' ? '+' : '-'}${formatCurrency(t.amount)}
+                    </td>
+                    <td><span class="action-del" onclick="deleteTransaction(${t.id})">&times;</span></td>
+                </tr>
+            `).join('');
+
+            // Render Tabla Recurrentes
+            document.getElementById('table-recurring').innerHTML = recurrings.map(r => `
+                <tr>
+                    <td>Día ${r.day}</td>
+                    <td>${r.description}</td>
+                    <td style="font-weight:bold;">${formatCurrency(r.amount)}</td>
+                    <td>
+                        <button class="btn ${r.paid ? 'btn-outline' : 'btn-purple'}" style="padding:2px 6px; font-size:0.7rem;" onclick="togglePaid(${r.id})">
+                            ${r.paid ? '✓ Pagado' : 'Marcar Pagado'}
+                        </button>
+                    </td>
+                    <td><span class="action-del" onclick="deleteRecurring(${r.id})">&times;</span></td>
+                </tr>
+            `).join('');
+
+            // Cálculos
+            const totalIncome = transactions.filter(t => t.type === 'income').reduce((a, b) => a + b.amount, 0);
+            const totalExpense = transactions.filter(t => t.type === 'expense').reduce((a, b) => a + b.amount, 0);
+            const cashBalance = totalIncome - totalExpense;
+
+            // Deudas pendientes este mes
+            const pendingRecurring = recurrings.filter(r => !r.paid).reduce((a, b) => a + b.amount, 0);
+            const freeBalance = cashBalance - pendingRecurring;
+
+            // Ritmo de gasto diario (días transcurridos)
+            const dayOfMonth = new Date().getDate();
+            const dailyBurnRate = totalExpense / (dayOfMonth || 1);
+            const runwayDays = dailyBurnRate > 0 ? Math.floor(cashBalance / dailyBurnRate) : 99;
+
+            document.getElementById('kpi-cash').innerText = formatCurrency(cashBalance);
+            document.getElementById('kpi-reserved').innerText = formatCurrency(pendingRecurring);
+            document.getElementById('kpi-free').innerText = formatCurrency(freeBalance);
+            document.getElementById('kpi-runway').innerText = `${runwayDays} días`;
+
+            // Proyección
+            const projCard = document.getElementById('projection-card');
+            if (freeBalance < 0) {
+                projCard.style.borderColor = 'var(--accent-red)';
+                projCard.innerHTML = `<strong style="color:var(--accent-red)">⚠️ ALERTA DE RIESGO:</strong> Si no recortas gastos inmediatos, te faltarán <strong>${formatCurrency(Math.abs(freeBalance))}</strong> para cubrir tus compromisos del mes.`;
+            } else {
+                projCard.style.borderColor = 'var(--accent-green)';
+                projCard.innerHTML = `<strong style="color:var(--accent-green)">🛡️ ZONA SEGURA:</strong> Tienes cubiertas todas tus deudas del mes. Tu margen libre para ahorro o imprevistos es de <strong>${formatCurrency(freeBalance)}</strong>.`;
+            }
+        }
+
+        // INTEGRACIÓN A TRAVÉS DEL BACKEND SERVER
+        async function consultOpenAI() {
+            const responseBox = document.getElementById('ai-response');
+            responseBox.innerText = "🧠 Consultando con OpenAI GPT-4o vía Servidor Backend... Analizando tu flujo de caja...";
+
+            const totalIncome = transactions.filter(t => t.type === 'income').reduce((a, b) => a + b.amount, 0);
+            const totalExpense = transactions.filter(t => t.type === 'expense').reduce((a, b) => a + b.amount, 0);
+            const pendingRecurring = recurrings.filter(r => !r.paid);
+
+            const promptData = {
+                caja_actual: totalIncome - totalExpense,
+                ingresos_totales: totalIncome,
+                gastos_totales: totalExpense,
+                deudas_pendientes_por_pagar: pendingRecurring,
+                historial_reciente: transactions.slice(0, 10)
+            };
+
+            try {
+                const res = await fetch('/api/ai-consult', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(promptData)
+                });
+
+                const data = await res.json();
+                if (data.advice) {
+                    responseBox.innerText = data.advice;
+                } else if (data.error) {
+                    responseBox.innerText = `Error: ${data.error}`;
+                }
+            } catch (err) {
+                responseBox.innerText = `Error de conexión con el backend: ${err.message}`;
+            }
+        }
+
+        function resetAll() {
+            if (confirm("¿Borrar todos los registros?")) {
+                localStorage.removeItem('ai_fin_transactions');
+                localStorage.removeItem('ai_fin_recurrings');
+                transactions = [];
+                recurrings = [];
+                renderAll();
+            }
+        }
+    </script>
+</body>
+</html>

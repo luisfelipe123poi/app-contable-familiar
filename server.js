@@ -142,7 +142,7 @@ app.post('/api/ai-consult', async (req, res) => {
 
 // Fallback para servir index.html desde "contable pagina"
 app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'contable pagina', 'index.html'));
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 // --- CONEXIÓN Y SERVIDOR ---

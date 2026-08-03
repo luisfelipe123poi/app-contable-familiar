@@ -204,11 +204,16 @@ Analiza el siguiente estado financiero y dame una estrategia concisa para evitar
     }
 });
 
-// Fallback SPA - Debe ir estrictamente al final
+// Fallback SPA - Sirve index.html solo para solicitudes web no asociadas a la API
 app.get('*', (req, res) => {
+    if (req.path.startsWith('/api/')) {
+        return res.status(404).json({ error: 'Ruta de API no encontrada' });
+    }
     res.sendFile(path.join(__dirname, 'contable pagina', 'index.html'));
 });
 
-app.listen(PORT, () => {
-    console.log(`🚀 Servidor corriendo en el puerto ${PORT}`);
+// --- BINDING OBLIGATORIO PARA RENDER ---
+// Al pasar '0.0.0.0', le indicas a Express que escuche en todas las interfaces de red externas.
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Servidor corriendo exitosamente en el puerto ${PORT}`);
 });

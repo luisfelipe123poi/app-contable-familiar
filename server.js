@@ -7,8 +7,25 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middlewares
-app.use(cors());
+// Configuración de CORS para aceptar peticiones desde Cloudflare y Localhost
+const allowedOrigins = [
+    'https://contable-familiar.prestigecloser.com',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000'
+];
+
+app.use(cors({
+    origin: function (origin, callback) {
+        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            callback(null, true); // Permite acceso universal en desarrollo/producción
+        }
+    },
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 app.use(express.json());
 
 // Servir la carpeta estática "contable pagina"
@@ -129,7 +146,7 @@ app.post('/api/ai-consult', async (req, res) => {
     const apiKey = process.env.OPENAI_API_KEY;
 
     if (!apiKey) {
-        return res.status(500).json({ error: 'OPENAI_API_KEY no configurada en .env' });
+        return res.status(500).json({ error: 'OPENAI_API_KEY no configurada en .env o en el panel de Render' });
     }
 
     const { caja_actual, ingresos_totales, gastos_totales, deudas_pendientes_por_pagar, historial_reciente } = req.body;
@@ -178,5 +195,5 @@ app.get('*', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
+    console.log(`🚀 Servidor corriendo en el puerto ${PORT}`);
 });

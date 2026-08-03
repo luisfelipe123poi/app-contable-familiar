@@ -24,13 +24,15 @@ const corsOptions = {
     },
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-    credentials: true
+    credentials: true,
+    optionsSuccessStatus: 200 // Responde 200 OK a las verificaciones OPTIONS (Preflight)
 };
 
 app.use(cors(corsOptions));
 
-// Manejo global de Preflight (OPTIONS) para evitar 405 en proxies de Cloudflare
-app.options('*', cors(corsOptions));
+// Manejo global de Preflight (OPTIONS) corregido para Express 4+
+// Evita el error 405 en proxies de Cloudflare y navegadores
+app.options(/(.*)/, cors(corsOptions));
 
 app.use(express.json());
 
@@ -168,8 +170,7 @@ app.post('/api/ai-consult', async (req, res) => {
 Analiza el siguiente estado financiero y dame una estrategia concisa para evitar quedar en cero:
 
 - Caja Actual Líquida: $${caja_actual}
-- Ingresos Totales Mes: $${ingresos_totales}
-- Gastos Totales Mes: $${gastos_totales}
+- Ingresos Totales Mes: $${ingresos_totales} - Gastos Totales Mes: $${gastos_totales}
 - Deudas Fijas Pendientes: ${JSON.stringify(deudas_pendientes_por_pagar)}
 - Últimos Movimientos: ${JSON.stringify(historial_reciente)}`;
 
@@ -204,7 +205,7 @@ Analiza el siguiente estado financiero y dame una estrategia concisa para evitar
     }
 });
 
-// Fallback SPA - Sirve index.html solo para solicitudes web no asociadas a la API
+// Fallback SPA - Sirve index.html solo para solicitudes web (no llamadas a /api/)
 app.get('*', (req, res) => {
     if (req.path.startsWith('/api/')) {
         return res.status(404).json({ error: 'Ruta de API no encontrada' });
@@ -212,8 +213,7 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'contable pagina', 'index.html'));
 });
 
-// --- BINDING OBLIGATORIO PARA RENDER ---
-// Al pasar '0.0.0.0', le indicas a Express que escuche en todas las interfaces de red externas.
+// --- BINDING EXPLICITO A HOST 0.0.0.0 PARA RENDER ---
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Servidor corriendo exitosamente en el puerto ${PORT}`);
 });
